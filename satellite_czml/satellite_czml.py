@@ -2,9 +2,8 @@
 # Author: Nicholas Miller (miller.nicholas.a@gmail.com)
 # https://github.com/cassova/satellite-czml
 
-
 from .czml import (CZML, Billboard, CZMLPacket, Description, Label,
-                   Path, Position)
+                   Path, Position, Point)
 from sgp4.earth_gravity import wgs72
 from sgp4.io import twoline2rv
 
@@ -18,6 +17,7 @@ class satellite():
     Creates an instance of a satellite to be included in the CZML document
     based on a TLE
     '''
+    id = ''
     name = ''
     description = ''
     color = ''
@@ -28,6 +28,8 @@ class satellite():
              "bt23PJCDIB6TQjOC6Bho/sDy3fBQT8PrVhibU7yBFcEPaRxOoeTwbwByCOYf9VGp1BYI1BA+Ee" +
              "HhmfzKbBoJEQwn1yzUZtyspIQUha85MpkNIXB7GizqDEECsAAAAASUVORK5CYII=")
     marker_scale = 1.5
+    show_label = True
+    show_path = True
     start_time = datetime.utcnow().replace(tzinfo=pytz.UTC)
     end_time = start_time + timedelta(hours=24)
     tle = []
@@ -39,9 +41,12 @@ class satellite():
     czmlPosition = None
     
     def __init__(self, tle, name=None, description=None, color=None, image=None,
-                 marker_scale=None, use_default_image=True, start_time=None, end_time=None):
+                 marker_scale=None, use_default_image=True, start_time=None, end_time=None,
+                 show_label=True, show_path=True):
 
         # Validate the inputs
+        self.id = int(tle[1][2:7])
+
         if name is None:
             self.tle = self.__check_tle_for_names(tle)
             self.name = tle[0]
@@ -60,12 +65,14 @@ class satellite():
             self.description = 'Orbit of Satellite: ' + self.name
 
         self.color = self.__check_color(color)
+        self.show_label = show_label
+        self.show_path = show_path
 
         if image is not None:
             self.image = image
         elif not use_default_image:
-            # TODO: Do something here to ensure we display a colored dot instead
             self.image = None
+            self.marker_scale = 10
 
         self.marker_scale = marker_scale or self.marker_scale
 
@@ -116,14 +123,32 @@ class satellite():
 
         return color
 
-    def build_marker(self, image=None, marker_scale=None, show_marker=True):
+    def build_marker(self,
+                     image=None,
+                     show_marker=True,
+                     size=None,
+                     outline=2,
+                     outlineColor=None,
+                     color=None,
+                     rebuild=False):
         '''
         Creates the satellite marker (i.e. billboard)
         '''
-        if self.czmlMarker is None:
-            self.czmlMarker = Billboard(scale=marker_scale or self.marker_scale,
-                                        show=show_marker)
-            self.czmlMarker.image = image or self.image
+        if self.czmlMarker is None or rebuild:
+            image = image or self.image
+            size = size or self.marker_scale
+            color = color or {"rgba": color or self.color}
+            outlineColor = outlineColor or {"rgba": [255, 255, 255, 128]}
+            if image is not None:
+                self.czmlMarker = Billboard(scale=size,
+                                            show=show_marker)
+                self.czmlMarker.image = image
+            else:
+                self.czmlMarker = Point(show=True,
+                                        color=color,
+                                        pixelSize=size,
+                                        outlineColor=outlineColor,
+                                        outlineWidth=outline)
         return self.czmlMarker
 
     def build_label(self, color=None,
@@ -134,12 +159,13 @@ class satellite():
                     outlineWidth=2,
                     pixelOffset={"cartesian2": [12, 0]},
                     style='FILL_AND_OUTLINE',
-                    show=True):
+                    show=None,
+                    rebuild=False):
         '''
         Creates the satellite label
         '''
-        if self.czmlLabel is None:
-            self.czmlLabel = Label(text=self.name, show=show)
+        if self.czmlLabel is None or rebuild:
+            self.czmlLabel = Label(text=self.name, show=show or self.show_label)
             self.czmlLabel.fillColor = {"rgba": color or self.color}
             self.czmlLabel.font = font
             self.czmlLabel.horizontalOrigin = hOrigin
@@ -150,7 +176,7 @@ class satellite():
             self.czmlLabel.style = style
         return self.czmlLabel
 
-    def build_path(self, show=True,
+    def build_path(self, show=None,
                    interval=None,
                    width=1,
                    materialColor=None,
@@ -158,16 +184,17 @@ class satellite():
                    lead_times=None,
                    trail_times=None,
                    start_time=None,
-                   end_time=None):
+                   end_time=None,
+                   rebuild=False):
         '''
         Creates the satellite path
         '''
-        if self.czmlPath is None:
+        if self.czmlPath is None or rebuild:
             if interval is None:
                 interval = self.start_time.isoformat() + "/" + self.end_time.isoformat()
 
             self.czmlPath = Path()
-            self.czmlPath.show=[{"interval": interval, "boolean": show}]
+            self.czmlPath.show=[{"interval": interval, "boolean": show or self.show_path}]
             self.czmlPath.width = width
             self.czmlPath.material = {"solidColor": {"color": {"rgba": materialColor or self.color}}}
             self.czmlPath.resolution = resolution
@@ -186,7 +213,8 @@ class satellite():
                        interpolationDegree = 5,
                        referenceFrame = "INERTIAL",
                        tle_object=None,
-                       step=300):
+                       step=300,
+                       rebuild=False):
         '''
         Creates the satellite positions and settings
         '''
@@ -339,21 +367,17 @@ class satellite_czml():
     end_time = start_time + timedelta(hours=24)
     speed_multiplier = 60
     default_seed = 0
+    ignore_bad_tles=False
 
     satellites = {}
-
-    def __init__(self):
-        '''
-        Initialize an empty object
-        '''
-        return True
 
     def __init__(self, tle_list, start_time=None, end_time=None, name_list=None,
                  description_list=None, color_list=None, image_list=None,
                  use_default_image=True, marker_scale_list=None, speed_multiplier=None,
-                 use_utc=True, seed=None):
+                 show_label=True, show_path=True, use_utc=True, seed=None,
+                 ignore_bad_tles=False):
         '''
-        Initialize a filled object
+        Initialize satellite_czml object
         '''
 
         # Validate the inputs and default to list of None's if None
@@ -373,20 +397,29 @@ class satellite_czml():
 
         # Set speed multiplier
         self.set_speed_multiplier(speed_multiplier)
+        
+        # Determine if we ignore bad TLEs
+        self.ignore_bad_tles = ignore_bad_tles
 
         # Create Satellite for each TLE in list
         for i,tle in enumerate(tle_list):
-            sat = satellite(tle=tle,
-                            name=name_list[i],
-                            description=description_list[i],
-                            color=color_list[i],
-                            image=image_list[i],
-                            marker_scale=marker_scale_list[i],
-                            use_default_image=use_default_image,
-                            start_time=self.start_time,
-                            end_time=self.end_time)
-            
-            self.add_satellite(sat)
+            try:
+                sat = satellite(tle=tle,
+                                name=name_list[i],
+                                description=description_list[i],
+                                color=color_list[i],
+                                image=image_list[i],
+                                marker_scale=marker_scale_list[i],
+                                use_default_image=use_default_image,
+                                start_time=self.start_time,
+                                end_time=self.end_time,
+                                show_label=show_label,
+                                show_path=show_path)
+
+                self.add_satellite(sat)
+            except Exception as e:
+                if not self.ignore_bad_tles:
+                    raise Exception(f'Failed to create the satellite object: {name_list[i]}\nError:\n{e}')
 
     def __check_list(self, tle_len, lst, lst_name=None):
         '''
@@ -405,20 +438,20 @@ class satellite_czml():
         '''
         Adds (or updates) instance of Satellite
         '''
-        self.satellites[sat.name] = sat
+        self.satellites[sat.id] = sat
         return True
 
-    def get_satellite(self, name):
+    def get_satellite(self, id):
         '''
         Returns instance of Satellite
         '''
-        return self.satellites[name]
+        return self.satellites[id]
 
-    def remove_satellite(self, name):
+    def remove_satellite(self, id):
         '''
         Removes instance of Satellite
         '''
-        del self.satellites[name]
+        del self.satellites[id]
         return True
 
     def set_start_end_time(self, start_time, end_time, set_utc=True):
@@ -464,17 +497,24 @@ class satellite_czml():
         doc.packets.append(packet)
 
         # Add each satellite
-        for name, sat in self.satellites.items():
+        for id, sat in self.satellites.items():
             # Initialize satellite CZML data
-            sat_packet = CZMLPacket(id=name)
-            sat_packet.availability = interval
-            sat_packet.description = Description(sat.description)
+            try:
+                sat_packet = CZMLPacket(id=id)
+                sat_packet.availability = interval
+                sat_packet.description = Description(sat.description)
 
-            sat_packet.billboard = sat.build_marker()
-            sat_packet.label = sat.build_label()
-            sat_packet.path = sat.build_path()
-            sat_packet.position = sat.build_position()
+                if sat.image is None:
+                    sat_packet.point = sat.build_marker()
+                else:
+                    sat_packet.billboard = sat.build_marker()
+                sat_packet.label = sat.build_label()
+                sat_packet.path = sat.build_path()
+                sat_packet.position = sat.build_position()
 
-            doc.packets.append(sat_packet)
+                doc.packets.append(sat_packet)
+            except Exception as e:
+                if not self.ignore_bad_tles:
+                    raise Exception(f'Failed to generate CZML for satellite ID {id}: {sat.name}\nError:\n{e}')
 
         return str(doc)
