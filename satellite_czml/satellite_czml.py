@@ -108,7 +108,7 @@ class satellite():
         Checks if color is valid or generates a random one
         '''
         if color is not None and len(color) not in [3,4]:
-            raise Exception(f"Color for {self.__name} only has {len(color)} elements.  Expected 3 or 4." +
+            raise Exception(f"Color for {self.name} only has {len(color)} elements.  Expected 3 or 4." +
                              "(last one, alpha, being optional)")
         elif color is not None:
             for x in color:
@@ -127,9 +127,9 @@ class satellite():
                      image=None,
                      show_marker=True,
                      size=None,
-                     outline=2,
-                     outlineColor=None,
                      color=None,
+                     outlineColor=[255, 255, 255, 128],
+                     outlineWidth=2,
                      rebuild=False):
         '''
         Creates the satellite marker (i.e. billboard)
@@ -137,8 +137,8 @@ class satellite():
         if self.czmlMarker is None or rebuild:
             image = image or self.image
             size = size or self.marker_scale
-            color = color or {"rgba": color or self.color}
-            outlineColor = outlineColor or {"rgba": [255, 255, 255, 128]}
+            color = {"rgba": color or self.color}
+            outlineColor = {"rgba": outlineColor}
             if image is not None:
                 self.czmlMarker = Billboard(scale=size,
                                             show=show_marker)
@@ -148,10 +148,12 @@ class satellite():
                                         color=color,
                                         pixelSize=size,
                                         outlineColor=outlineColor,
-                                        outlineWidth=outline)
+                                        outlineWidth=outlineWidth)
         return self.czmlMarker
 
-    def build_label(self, color=None,
+    def build_label(self,
+                    show=None,
+                    color=None,
                     font='11pt Lucida Console',
                     hOrigin='LEFT',
                     vOrigin='CENTER',
@@ -159,7 +161,6 @@ class satellite():
                     outlineWidth=2,
                     pixelOffset={"cartesian2": [12, 0]},
                     style='FILL_AND_OUTLINE',
-                    show=None,
                     rebuild=False):
         '''
         Creates the satellite label
@@ -176,10 +177,11 @@ class satellite():
             self.czmlLabel.style = style
         return self.czmlLabel
 
-    def build_path(self, show=None,
+    def build_path(self,
+                   show=None,
+                   color=None,
                    interval=None,
                    width=1,
-                   materialColor=None,
                    resolution=120,
                    lead_times=None,
                    trail_times=None,
@@ -196,7 +198,7 @@ class satellite():
             self.czmlPath = Path()
             self.czmlPath.show=[{"interval": interval, "boolean": show or self.show_path}]
             self.czmlPath.width = width
-            self.czmlPath.material = {"solidColor": {"color": {"rgba": materialColor or self.color}}}
+            self.czmlPath.material = {"solidColor": {"color": {"rgba": color or self.color}}}
             self.czmlPath.resolution = resolution
 
             if lead_times is None and trail_times is None:
@@ -371,8 +373,8 @@ class satellite_czml():
 
     satellites = {}
 
-    def __init__(self, tle_list, start_time=None, end_time=None, name_list=None,
-                 description_list=None, color_list=None, image_list=None,
+    def __init__(self, tle_list=None, satellite_list=None, start_time=None, end_time=None,
+                 name_list=None, description_list=None, color_list=None, image_list=None,
                  use_default_image=True, marker_scale_list=None, speed_multiplier=None,
                  show_label=True, show_path=True, use_utc=True, seed=None,
                  ignore_bad_tles=False):
@@ -380,46 +382,55 @@ class satellite_czml():
         Initialize satellite_czml object
         '''
 
-        # Validate the inputs and default to list of None's if None
-        ex_len = len(tle_list)
-        name_list        = self.__check_list(ex_len, name_list, 'name_list')
-        description_list = self.__check_list(ex_len, description_list, 'description_list')
-        color_list       = self.__check_list(ex_len, color_list, 'color_list')
-        image_list       = self.__check_list(ex_len, image_list, 'image_list')
-        marker_scale_list = self.__check_list(ex_len, marker_scale_list, 'marker_scale_list')
-
-        if start_time != None or end_time != None:
-            self.set_start_end_time(start_time or self.start_time,
-                                    end_time or self.end_time)
-
         # Set the seed now before we generate colors
         self.set_seed(seed)
 
         # Set speed multiplier
         self.set_speed_multiplier(speed_multiplier)
-        
-        # Determine if we ignore bad TLEs
-        self.ignore_bad_tles = ignore_bad_tles
-
-        # Create Satellite for each TLE in list
-        for i,tle in enumerate(tle_list):
-            try:
-                sat = satellite(tle=tle,
-                                name=name_list[i],
-                                description=description_list[i],
-                                color=color_list[i],
-                                image=image_list[i],
-                                marker_scale=marker_scale_list[i],
-                                use_default_image=use_default_image,
-                                start_time=self.start_time,
-                                end_time=self.end_time,
-                                show_label=show_label,
-                                show_path=show_path)
-
+            
+        # Validate the inputs and default to list of None's if None
+        if satellite_list==None and tle_list==None:
+            raise TypeError("Missing a required argument: 'tle_list' or 'satellite_list'")
+        elif satellite_list is not None:
+            self.start_time = satellite_list[0].start_time
+            self.end_time = satellite_list[0].end_time
+            
+            for sat in satellite_list:
                 self.add_satellite(sat)
-            except Exception as e:
-                if not self.ignore_bad_tles:
-                    raise Exception(f'Failed to create the satellite object: {name_list[i]}\nError:\n{e}')
+        else:
+            ex_len = len(tle_list)
+            name_list        = self.__check_list(ex_len, name_list, 'name_list')
+            description_list = self.__check_list(ex_len, description_list, 'description_list')
+            color_list       = self.__check_list(ex_len, color_list, 'color_list')
+            image_list       = self.__check_list(ex_len, image_list, 'image_list')
+            marker_scale_list = self.__check_list(ex_len, marker_scale_list, 'marker_scale_list')
+
+            if start_time != None or end_time != None:
+                self.set_start_end_time(start_time or self.start_time,
+                                        end_time or self.end_time)
+
+            # Determine if we ignore bad TLEs
+            self.ignore_bad_tles = ignore_bad_tles
+
+            # Create Satellite for each TLE in list
+            for i,tle in enumerate(tle_list):
+                try:
+                    sat = satellite(tle=tle,
+                                    name=name_list[i],
+                                    description=description_list[i],
+                                    color=color_list[i],
+                                    image=image_list[i],
+                                    marker_scale=marker_scale_list[i],
+                                    use_default_image=use_default_image,
+                                    start_time=self.start_time,
+                                    end_time=self.end_time,
+                                    show_label=show_label,
+                                    show_path=show_path)
+
+                    self.add_satellite(sat)
+                except Exception as e:
+                    if not self.ignore_bad_tles:
+                        raise Exception(f'Failed to create the satellite object: {name_list[i]}\nError:\n{e}')
 
     def __check_list(self, tle_len, lst, lst_name=None):
         '''
