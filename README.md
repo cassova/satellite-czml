@@ -1,13 +1,13 @@
 # Satellite CZML
+Creates a CZML string based on TLE (Two Line Element set) data for plotting satellites on the open source [CesiumJS](https://cesium.com/cesiumjs/) JavaScript library.
 
-Creates a CZML string based on TLE (Two Line Element set) data for plotting satellites on the open source [CesiumJS](https://cesium.com/cesiumjs/) JavaScript library.  A CZML file/string is used by CesiumJS to show a Time Animation such as in this [example](https://sandcastle.cesium.com/?src=CZML.html).
+# Background
+CesiumJS is a WebGL earth modeling engine which allows for time annimated displays of satellites using 3D and 2D interactive maps in the web browser.  A CZML file/string is used by CesiumJS to show a time animation such as in this [example](https://sandcastle.cesium.com/?src=CZML.html).  Each [Two-Line Element set (TLE)](https://www.celestrak.com/NORAD/documentation/tle-fmt.php) contains orbit information for a single satellite.  Since satellites drift and maneuver, these become out-of-date and new TLEs must be published.  [Space-Track.org](https://www.space-track.org/) is an excellent resource for getting up-to-date and historic TLE data via their free API.  There is also a [spacetrack](https://pypi.org/project/spacetrack/) python package which interfaces with this API for you.
 
 ## Installation
-
 `pip install satellite_czml`
 
 ## Usage
-
 This library contains two classes to aid in the generation of CZML strings.
 
 - `satellite_czml` - Takes either TLE data or `satellite` objects and builds CZML string
@@ -42,7 +42,6 @@ czml_string = satellite_czml(tle_list=multiple_tle).get_czml()
 ![Multiple Example](screenshots/multiple_czml.png "Multiple Satellite Example")
 
 ### Specifying Argument Lists
-
 ```Python
 from satellite_czml import satellite_czml
 from datetime import datetime, timedelta
@@ -63,7 +62,6 @@ czml_string = czml_obj.get_czml()
 ![Specifying Arguments Example](screenshots/multiple_czml_p.png "Specifying Arguments Example")
 
 ### Create Satellites One-by-One
-
 ```Python
 from satellite_czml import satellite_czml
 from satellite_czml import satellite
@@ -124,7 +122,6 @@ czml_string = czml_obj.get_czml()
 ![Modifying Example](screenshots/modified_czml.png "Modifying Example")
 
 ## Thank You
-
 Special thanks to [Shane Carty](https://pypi.org/user/kujosHeist/), [Christian Ledermann](https://pypi.org/user/Christian.Ledermann/) and [Brandon Rhodes](https://pypi.org/user/brandonrhodes/) for your work which made this package possible.
 
 This is initially based on [Shane Carty's](https://pypi.org/user/kujosHeist/) [tle2czml](https://pypi.org/project/tle2czml/) python package and uses his motified version of `czml.py` from Christian Ledermann.
