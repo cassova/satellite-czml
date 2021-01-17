@@ -5,7 +5,7 @@ Creates a CZML string based on TLE (Two Line Element set) data for plotting sate
 CesiumJS is a WebGL earth modeling engine which allows for time annimated displays of satellites using 3D and 2D interactive maps in the web browser.  A CZML file/string is used by CesiumJS to show a time animation such as in this [example](https://sandcastle.cesium.com/?src=CZML.html).  Each [Two-Line Element set (TLE)](https://www.celestrak.com/NORAD/documentation/tle-fmt.php) contains orbit information for a single satellite.  Since satellites drift and maneuver, these become out-of-date and new TLEs must be published.  [Space-Track.org](https://www.space-track.org/) is an excellent resource for getting up-to-date and historic TLE data via their free API.  There is also a [spacetrack](https://pypi.org/project/spacetrack/) python package which interfaces with this API for you.
 
 ## Installation
-`pip install satellite_czml`
+`pip install satellite-czml`
 
 ## Usage
 This library contains two classes to aid in the generation of CZML strings.
