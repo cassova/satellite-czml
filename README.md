@@ -31,7 +31,7 @@ czml_string = satellite_czml(tle_list=single_tle).get_czml()
 ![Simple Example](screenshots/simple_czml.png "Simple Satellite Example")
 
 ### Multiple Satellite Example
-The same works method works whith multiple TLE entries
+The same method works with multiple TLE entries
 
 ```Python
 from satellite_czml import satellite_czml
